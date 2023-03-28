@@ -1,0 +1,2965 @@
+---
+title: "Modelos de regresión multinivel"
+author: "Anais Herrera Leighton"
+output: 
+  html_document: 
+    toc: yes
+    code_folding: hide
+    toc_float: 
+      collapsed: true
+      smooth_scroll: false
+      number_sections: true
+    css: "../input/css/custom.css"
+  pdf_document: default
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+	error = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r}
+pacman::p_load(stargazer, ggplot2, sjmisc, car, sjlabelled, haven, cowplot,
+               sjPlot, summarytools, kableExtra, corrplot, coefplot, ltm, polycor,
+               psych, lme4, ppcor, texreg, skimr, gtools, bda, lmerTest, Matrix, extrafont, sessioninfo, dplyr,
+               mediation, fastDummies)
+```
+
+# Cargar base
+```{r}
+load("../input/data/proc/data_proc.Rdata")
+```
+
+```{r}
+#data_proc0$S_HISCED %>% table()
+data_proc=data_proc0 %>% 
+  dplyr::select(
+    f.genero,
+    f.homosexual,
+    f.etnico,
+    "c_civico"=PV1CIV,
+    "sexo"=S_GENDER,
+    "migratorio"=IS3G04A,
+    etnico,
+    "educ_apod"=S_HISCED,
+    "ocup_apod"=S_HISEI,
+    "libros"=IS3G11,
+    num_fem,
+    num_etn,
+    num_mig,
+#    f.ap_discusion,
+    f.ap_discusion_aula,
+ #   f.buen_clima_prof, 
+    f.buen_clima_prof_aula,
+  #  f.buen_clima_est,
+    f.buen_clima_est_aula,
+   # f.mal_clima,
+    f.mal_clima_aula,
+    idschool
+  ) %>% as.data.frame() 
+data_proc <- na.omit(data_proc)
+#save(data_proc, file = "../input/data/proc/data1.Rdata")
+```
+
+
+```{r}
+data_proc$c_civico=scale(data_proc$c_civico)
+```
+
+
+# Modelos de regresión: Base de datos reducida
+## Modelo nulo
+```{r}
+data_proc$idschool <- as.factor(data_proc$idschool)
+
+reg0_gen <- lme4::lmer(f.genero ~ 1 + (1 | idschool), data=data_proc)
+reg0_etn <- lme4::lmer(f.etnico ~ 1 + (1 | idschool), data=data_proc)
+reg0_hom <- lme4::lmer(f.homosexual ~ 1 + (1 | idschool), data=data_proc)
+
+#stargazer::stargazer(reg0_gen,reg0_etn, reg0_hom, column.labels=c("Igualdad de derechos entre hombres y mujeres","Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los inmigrantes"), type ='text')
+```
+
+```{r results='asis'}
+texreg::knitreg(list(reg0_gen,reg0_etn, reg0_hom), custom.model.names = c("Actitudes hacia la igualdad de derechos entre hombres y mujeres","Actitudes hacia la igualdad de derechos para todos los grupos étnicos", "Actitudes hacia la igualdad de derechos para los homosexuales"), custom.note = "$***p <$ 0.001, $**p <$ 0.01, $*p <$ 0.05",  custom.coef.names = c("Intercepto"))
+```
+### Correlación intra-clase
+#### Igualdad de derechos entre hombres y mujeres
+```{r}
+reghelper::ICC(reg0_gen)
+```
+#### Igualdad de derechos para todos los grupos étnicos
+```{r}
+reghelper::ICC(reg0_etn)
+```
+#### Igualdad de derechos para los homosexuales
+```{r}
+reghelper::ICC(reg0_hom)
+```
+
+## Modelos de regresión 
+```{r}
+reg_gen <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                  # f.ap_discusion +
+                  f.ap_discusion_aula + 
+                  # f.buen_clima_prof +
+                   f.buen_clima_prof_aula +
+                   #f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                  #f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 | idschool), data=data_proc)
+
+reg_etn <- lmer(f.etnico ~ 1 +
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                 #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                  # f.buen_clima_prof +
+                   f.buen_clima_prof_aula +
+                   #f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                  #f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 | idschool), data=data_proc)
+
+reg_hom <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                 #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                  # f.buen_clima_prof +
+                   f.buen_clima_prof_aula +
+                   #f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                  #f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 | idschool), data=data_proc)
+#screenreg(list(reg_gen,reg_etn,reg_hom))
+
+```
+
+
+```{r results='asis'}
+
+etiquetas_efectos =c("Situaciones de bullying (aula)", 
+                                                                         "Relaciones entre estudiantes (aula)", 
+                                                                         "Relaciones entre estudiantes y profesores (aula)", 
+                                                                         "Apertura a la discusión (aula)", 
+                                                                         "Proporción personas con antecedentes migratorios (aula)", 
+                                                                          "Proporción personas de grupos étnicos (aula)", 
+                                                                        "Proporción niñas (aula)", 
+                                                                         "Más de 200 libros", 
+                                                                         "101-200 libros", 
+                                                                         "26-100 libros", 
+                                                                         "11-25 libros (Ref. 0-10 libros)", 
+                                                                         "Estatus ocupacional de los padres", 
+                                                                          "Ed. universitaria o más", 
+                                                                         "Ed. técnica", 
+                                                                         "Ed. media", 
+                                                                        "Ed. básica (Ref. menos que 8vo)", 
+                                                                         "Conocimiento cívico", 
+                                                                         "Antecedentes migratorios (Ref. con antecedentes)", 
+                                                                         "Pertenece a un grupo étnico (Ref. no pertenece)", 
+                                                                         "Sexo femenino (Ref. masculino)" , "Intercepto")
+
+etiquetas_efectos=etiquetas_efectos %>% rev()
+
+
+knitreg(list(reg_gen,reg_etn,reg_hom), custom.model.names = c("IDM", "IDGE", "IDH"), custom.coef.names = etiquetas_efectos) 
+
+
+
+
+```
+
+"Actitudes hacia la igualdad de derechos entre hombres y mujeres (IDM)",
+                                 "Actitudes hacia la igualdad de derechos para homosexuales (IDH)",
+                                 "Actitudes hacia la igualdad de derechos para grupos étnicos (IDGE)",
+                                 "Conocimiento civico",
+                                 "Sexo",
+                                 "Antecedentes migratorios",
+                                 "Pertenencia a grupo étnico",
+                                 "Nivel educacional de los padres",
+                                 "Estatus ocupacional de los padres",
+                                 "Cantidad de libros en el hogar",
+                                 "Proporción de niñas",
+                                 "Proporción de estudiantes pertenecientes a un grupo étnico",
+                                 "Proporción de estudiantes con antecedentes migratorios",
+                                 "Apertura a la discusión en el aula",
+                                 #"Apertura a la discusión en el aula ind",
+                                 "Relaciones interpersonales entre profesores y estudiantes",
+                                 #"Relaciones interpersonales entre profesores y estudiantes ind",
+                                 "Relaciones interpersonales entre estudiantes",
+                                 #"Relaciones interpersonales entre estudiantes ind",
+                                 "Situaciones de violencia física, emocional o verbal",
+
+
+# Modelos igualda de derecho entre hombre y mujeres
+
+
+```{r}
+
+
+reg_null <- lmer(f.genero ~ 1 + (1 | idschool), data=data_proc)
+
+reg_n1 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   (1 | idschool), data=data_proc)
+
+reg_n2 <- lmer(f.genero ~ 1 +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                  mean_mal_clima +
+                   (1 | idschool), data=data_proc)
+
+reg_n3 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                  mean_mal_clima +
+                   (1 | idschool), data=data_proc)
+
+
+
+
+```
+  
+```{r}
+knitreg(list(reg_n1,reg_n2,reg_n3), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"))#, custom.coef.names = c("Intercepto", "Sexo <br> <i>(Ref. Niño)</i>", "")) 
+
+```
+
+
+
+
+
+### Igualdad de derechos entre hombres y mujeres
+```{r}
+########################
+# gráfico
+########################
+
+modelo_gen <- sjPlot::plot_model(reg_gen, type=c("std"), axis.labels = c("Situaciones de bullying (aula)", 
+                                                                         "Relaciones entre estudiantes (aula)", 
+                                                                         "Relaciones entre estudiantes y profesores (aula)", 
+                                                                         "Apertura a la discusión (aula)", 
+                                                                         "Proporción personas con antecedentes migratorios (aula)", 
+                                                                          "Proporción personas de grupos étnicos (aula)", 
+                                                                        "Proporción niñas (aula)", 
+                                                                         "Más de 200 libros", 
+                                                                         "101-200 libros", 
+                                                                         "26-100 libros", 
+                                                                         "11-25 libros (Ref. 0-10 libros)", 
+                                                                         "Estatus ocupacional de los padres", 
+                                                                          "Ed. universitaria o más", 
+                                                                         "Ed. técnica", 
+                                                                         "Ed. media", 
+                                                                        "Ed. básica (Ref. menos que 8vo)", 
+                                                                         "Conocimiento cívico", 
+                                                                         "Antecedentes migratorios (Ref. sin antecedentes)", 
+                                                                         "Pertenece a un grupo étnico (Ref. no pertenece)", 
+                                                                         "Sexo femenino (Ref. masculino)"))  + ggtitle("IDM") + theme_grey() + theme(text=element_text(family="Times New Roman", face = "bold"), plot.title = element_text(size=10, hjust=0.5), axis.text.y = element_text(size=7.5), axis.title.x = element_text(size=6), axis.text.x = element_text(size=6))
+
+#"Situaciones de bullying (grupal)",                                                                          "Situaciones de bullying (aula)",                                                                         "Relaciones entre estudiantes (grupal)",                                                                         "Relaciones entre estudiantes (aula)",                                                                         "Relaciones entre estudiantes y profesores (grupal)",             "Relaciones entre estudiantes y profesores (aula)",    "Apertura a la discusión (grupal)",                    "Apertura a la discusión (aula)",                                                                          "Proporción personas con antecedentes migratorios (aula)",                                                                           "Proporción personas de grupos étnicos (aula)",                                                                        "Proporción niñas (aula)",                                                                         "Más de 200 libros",                                                                          "101-200 libros",                                                                          "26-100 libros",                                                                          "11-25 libros (Ref. 0-10 libros)",                                                                          "Estatus ocupacional de los padres",                                                                           "Ed. universitaria o más",                                                                         "Ed. técnica",                                                                         "Ed. media",                                                                         "Ed. básica (Ref. menos que 8vo)",                                                                          "Conocimiento cívico",                                                                          "Antecedentes migratorios (Ref. sin antecedentes)",                                                                          "Pertenece a un grupo étnico (Ref. no pertenece)",                                                                         "Sexo femenino (Ref. masculino)")) 
+
+#"Sexo femenino (Ref. masculino)",                                                                          "Pertenece a un grupo étnico (Ref. no pertenece)",                                                                        "Antecedentes migratorios (Ref. sin antecedentes)",                                                                          "Conocimiento cívico",                                                                          "Ed. básica (Ref. menos que 8vo)",                                                                          "Ed. media",                                                                          "Ed. técnica",                                                                          "Ed. universitaria o más",                                                                          "Estatus ocupacional de los padres",                                                                          "11-25 libros (Ref. 0-10 libros)",                                                                          "26-100 libros",                                                                          "101-200 libros",                                                                          "Más de 200 libros",                                                                          "Proporción niñas (aula)",                                                                          "Proporción personas de grupos étnicos (aula)",                                                                          "Proporción personas con antecedentes migratorios (aula)",                                                                          "Apertura a la discusión (aula)",                                                                          "Apertura a la discusión (grupal)",                                                                          "Relaciones entre estudiantes y profesores (aula)",                                                                          "Relaciones entre estudiantes y profesores (grupal)",                                                                                                  "Relaciones entre estudiantes (aula)",                                                                          "Relaciones entre estudiantes (grupal)",                                                                          "Situaciones de bullying (aula)",                                                                          "Situaciones de bullying (grupal)")
+
+#"Situaciones de bullying (grupal)", "Situaciones de bullying (aula)", "Relaciones entre estudiantes (grupal)", "Relaciones entre estudiantes (aula)", "Relaciones entre estudiantes y profesores (grupal)", "Relaciones entre estudiantes y profesores (aula)", "Apertura a la discusión (grupal)", "Apertura a la discusión (aula)", "Proporción personas con antecedentes migratorios en el aula", "Proporción grupos étnicos en el aula", "Proporción niñas en el aula", "Más de 200 libros", "101-200 libros", "26-100 libros", "11-25 libros (Ref. 0-10 libros)", "Estatus ocupacional de los padres", "Ed. universitaria o más", "Ed. técnica", "Ed. media", "Ed. básica (Ref. menos que 8vo)", "Pertenece a un grupo étnico (Ref. no pertenece)", "Antecedentes migratorios (Ref. sin antecedentes)", "Sexo femenino (Ref. masculino)","Conocimiento cívico"
+modelo_gen
+ggsave(modelo_gen, filename = "../output/modelo_gen.png",device = "png",width = 18,height = 14.5,dpi = "retina",units = "cm")
+```
+### Igualdad de derechos para todos los grupos étnicos
+
+```{r}
+########################
+# gráfico
+########################
+
+modelo_etn0 <- sjPlot::plot_model(reg_etn, type=c("std"), axis.labels = c("Situaciones de bullying (aula)", 
+                                                                         "Relaciones entre estudiantes (aula)", 
+                                                                         "Relaciones entre estudiantes y profesores (aula)", 
+                                                                         "Apertura a la discusión (aula)", 
+                                                                         "Proporción personas con antecedentes migratorios (aula)", 
+                                                                          "Proporción personas de grupos étnicos (aula)", 
+                                                                        "Proporción niñas (aula)", 
+                                                                         "Más de 200 libros", 
+                                                                         "101-200 libros", 
+                                                                         "26-100 libros", 
+                                                                         "11-25 libros (Ref. 0-10 libros)", 
+                                                                         "Estatus ocupacional de los padres", 
+                                                                          "Ed. universitaria o más", 
+                                                                         "Ed. técnica", 
+                                                                         "Ed. media", 
+                                                                        "Ed. básica (Ref. menos que 8vo)", 
+                                                                         "Conocimiento cívico", 
+                                                                         "Antecedentes migratorios (Ref. sin antecedentes)", 
+                                                                         "Pertenece a un grupo étnico (Ref. no pertenece)", 
+                                                                         "Sexo femenino (Ref. masculino)"))  + ggtitle("IDGE") + theme_grey()+ theme(text=element_text(family="Times New Roman", face = "bold"), plot.title = element_text(size=10, hjust=0.5), axis.text.y = element_text(size=7.5), axis.title.x = element_text(size=6), axis.text.x = element_text(size=6))
+
+modelo_etn0
+ggsave(modelo_etn0, filename = "../output/modelo_etn.png",device = "png",width = 18,height = 14.5,dpi = "retina",units = "cm")
+
+modelo_etn <- sjPlot::plot_model(reg_etn, type=c("std"), axis.labels = c(" ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " "," ")) + ggtitle("IDGE") + theme_grey()+ theme(text=element_text(family="Times New Roman", face = "bold"), plot.title = element_text(size=10, hjust=0.5), axis.text.y = element_text(size=7.5), axis.title.x = element_text(size=6), axis.text.x = element_text(size=6))
+```
+### Igualdad de derechos para los homosexuales
+
+```{r}
+########################
+# gráfico
+########################
+
+modelo_hom0 <- sjPlot::plot_model(reg_hom, type=c("std"), axis.labels = c("Situaciones de bullying (aula)", 
+                                                                         "Relaciones entre estudiantes (aula)", 
+                                                                         "Relaciones entre estudiantes y profesores (aula)", 
+                                                                         "Apertura a la discusión (aula)", 
+                                                                         "Proporción personas con antecedentes migratorios (aula)", 
+                                                                          "Proporción personas de grupos étnicos (aula)", 
+                                                                        "Proporción niñas (aula)", 
+                                                                         "Más de 200 libros", 
+                                                                         "101-200 libros", 
+                                                                         "26-100 libros", 
+                                                                         "11-25 libros (Ref. 0-10 libros)", 
+                                                                         "Estatus ocupacional de los padres", 
+                                                                          "Ed. universitaria o más", 
+                                                                         "Ed. técnica", 
+                                                                         "Ed. media", 
+                                                                        "Ed. básica (Ref. menos que 8vo)", 
+                                                                         "Conocimiento cívico", 
+                                                                         "Antecedentes migratorios (Ref. sin antecedentes)", 
+                                                                         "Pertenece a un grupo étnico (Ref. no pertenece)", 
+                                                                         "Sexo femenino (Ref. masculino)"))  + ggtitle("IDH") + theme_grey() + theme(text=element_text(family="Times New Roman", face = "bold"), plot.title = element_text(size=10, hjust=0.5), axis.text.y = element_text(size=7.5), axis.title.x = element_text(size=6), axis.text.x = element_text(size=6))
+
+modelo_hom0
+ggsave(modelo_hom0, filename = "../output/modelo_hom.png",device = "png",width = 18,height = 14.5,dpi = "retina",units = "cm")
+
+modelo_hom <- sjPlot::plot_model(reg_hom, type=c("std"), axis.labels = c(" ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " "," ")) + ggtitle("IDH") + theme_grey() + theme(text=element_text(family="Times New Roman", face = "bold"), plot.title = element_text(size=10, hjust=0.5), axis.text.y = element_text(size=7.5), axis.title.x = element_text(size=6), axis.text.x = element_text(size=6))
+
+```
+### Gráfico conjunto
+
+```{r}
+general <- cowplot::plot_grid(modelo_gen,modelo_etn,modelo_hom, ncol=3, rel_widths = c(1.38, 1, 1))
+general
+ggsave(general, file = "../output/graf_modelos_conjuntos.png",device = "png",width = 26,height = 18,dpi = "retina",units = "cm") 
+```
+
+### Hipótesis 1.
+*Hipótesis 1 (Hipótesis de desventaja): Pertenecer al sexo femenino, tener antecedentes migratorios y pertenecer a un grupo étnico son factores que tendrán una asociación positiva con las actitudes hacia la igualdad de derechos.*
+
+#### Sexo
+```{r}
+reg_gen_1a <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_1a <- lmer(f.etnico ~ 1 +
+                   sexo +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_1a <- lmer(f.homosexual ~ 1 +
+                   sexo +
+                   (1 | idschool), data=data_proc)
+
+```
+
+```{r results='asis'}
+#screenreg(list(reg_gen_1a,reg_etn_1a,reg_hom_1a), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Sexo (Ref. Niño)")) 
+
+knitreg(list(reg_gen_1a,reg_etn_1a,reg_hom_1a), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Sexo <br> <i>(Ref. Niño)</i>")) 
+
+#, omit.coef = "(Educacion)|(Libros_apod_rec)|(quintiles_ingresos_pc_factor)|(igualdad.pad)|(esp_publico.pad)|(esp_privado.pad)|(ap_discusion)|(mean_discusion)|(num_fem)|(dependencia)|(REGION)|(c_civic)", custom.note = "$***p <$ 0.001, $**p <$ 0.01, $*p <$ 0.05 <br> Todos los modelos están controlados por el resto de las variables analizadas, la dependencia administrativa de la escuela, la región y el nivel de conocimiento cívico del estudiante."
+```
+#### Pertenencia a un grupo étnico
+```{r}
+reg_gen_1b <- lmer(f.genero ~ 1 + 
+                   etnico +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_1b <- lmer(f.etnico ~ 1 +
+                   etnico +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_1b <- lmer(f.homosexual ~ 1 +
+                   etnico +
+                   (1 | idschool), data=data_proc)
+
+```
+
+```{r results='asis'}
+#screenreg(list(reg_gen_1b,reg_etn_1b,reg_hom_1b), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Pertenencer a un grupo étnico (Ref. no pertenencer)")) 
+
+knitreg(list(reg_gen_1b,reg_etn_1b,reg_hom_1b), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Pertenencer a un grupo étnico <br> <i>(Ref. no pertenencer)</i>")) 
+```
+#### Tener antecedentes migratorios
+```{r}
+reg_gen_1c <- lmer(f.genero ~ 1 + 
+                   migratorio +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_1c <- lmer(f.etnico ~ 1 +
+                   migratorio +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_1c <- lmer(f.homosexual ~ 1 +
+                   migratorio +
+                   (1 | idschool), data=data_proc)
+```
+
+```{r results='asis'}
+#screenreg(list(reg_gen_1c,reg_etn_1c,reg_hom_1c), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Tener antecedentes migratorios (Ref. no tener)")) 
+
+knitreg(list(reg_gen_1c,reg_etn_1c,reg_hom_1c), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Tener antecedentes migratorios <br> <i>(Ref. no tener)</i>")) 
+```
+### Hipótesis 2.
+*Hipótesis 2: El nivel de conocimiento cívico tendrá una asociación positiva con las actitudes hacia la igualdad de derechos. *
+
+#### Conocimiento cívico
+```{r}
+reg_gen_2 <- lmer(f.genero ~ 1 + 
+                   c_civico +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_2 <- lmer(f.etnico ~ 1 +
+                   c_civico +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_2 <- lmer(f.homosexual ~ 1 +
+                   c_civico +
+                   (1 | idschool), data=data_proc)
+```
+
+```{r results='asis'}
+#screenreg(list(reg_gen_2,reg_etn_2,reg_hom_2), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Conocimiento cívico")) 
+
+knitreg(list(reg_gen_2,reg_etn_2,reg_hom_2), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Conocimiento cívico")) 
+```
+#### Interacción
+```{r}
+
+```
+
+### Hipótesis 3.
+*Hipótesis 3 (Hipótesis de transmisión intergeneracional de la desigualdad en la socialización política): Los recursos socioeconómicos de la familia del estudiante (cantidad de libros en el hogar, estatus ocupacional de los padres y/o nivel educativo de los padres) se asociarán positivamente con las actitudes hacia la igualdad de derechos.*
+
+#### Educación
+```{r}
+reg_gen_3a <- lmer(f.genero ~ 1 + 
+                   factor(educ_apod) +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_3a <- lmer(f.etnico ~ 1 +
+                   factor(educ_apod) +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_3a <- lmer(f.homosexual ~ 1 +
+                   factor(educ_apod) +
+                   (1 | idschool), data=data_proc)
+
+```
+
+```{r results='asis'}
+#screenreg(list(reg_gen_3a,reg_etn_3a,reg_hom_3a), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Ed. básica (Ref. menos que 8vo)", "Ed. media", "Ed. técnica", "Ed. universitaria o más")) 
+
+knitreg(list(reg_gen_3a,reg_etn_3a,reg_hom_3a), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Ed. básica (Ref. menos que 8vo)", "Ed. media", "Ed. técnica", "Ed. universitaria o más")) 
+```
+#### Estatus ocupacional
+```{r}
+reg_gen_3b <- lmer(f.genero ~ 1 + 
+                   ocup_apod +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_3b <- lmer(f.etnico ~ 1 +
+                   ocup_apod +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_3b <- lmer(f.homosexual ~ 1 +
+                   ocup_apod +
+                   (1 | idschool), data=data_proc)
+
+```
+
+```{r results='asis'}
+#screenreg(list(reg_gen_3b,reg_etn_3b,reg_hom_3b), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Estatus ocupacional de los padres")) 
+
+knitreg(list(reg_gen_3b,reg_etn_3b,reg_hom_3b), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Estatus ocupacional de los padres")) 
+```
+
+#### Cantidad de libros en el hogar
+```{r}
+reg_gen_3c <- lmer(f.genero ~ 1 + 
+                   factor(libros) +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_3c <- lmer(f.etnico ~ 1 +
+                   factor(libros) +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_3c <- lmer(f.homosexual ~ 1 +
+                   factor(libros) +
+                   (1 | idschool), data=data_proc)
+
+```
+
+```{r results='asis'}
+#screenreg(list(reg_gen_3c,reg_etn_3c,reg_hom_3c), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "11-25 libros (Ref. 0-10 libros)", "26-100 libros", "101-200 libros", "Más de 200 libros")) 
+
+knitreg(list(reg_gen_3c,reg_etn_3c,reg_hom_3c), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "11-25 libros (Ref. 0-10 libros)", "26-100 libros", "101-200 libros", "Más de 200 libros"))
+```
+
+### Hipótesis 4.
+*Hipótesis 4 (Hipótesis de composición del aula): En relación con este punto, se sostendrán tres hipótesis: (a) la proporción de estudiantes en el aula pertenecientes al sexo femenino posee una asociación positiva con las actitudes hacia la igualdad de derechos, (b) la proporción de estudiantes en el aula pertenecientes a un grupo étnico posee una asociación positiva con las actitudes hacia la igualdad de derechos, y (c) la proporción de estudiantes en el aula que posean antecedentes migratorios tendrá una asociación positiva con las actitudes hacia la igualdad de derechos.*
+
+#### Proporción de niñas en el aula
+```{r}
+reg_gen_4a <- lmer(f.genero ~ 1 + 
+                   num_fem +
+                   (1 | idschool), data=data_proc)
+
+reg_etn_4a <- lmer(f.etnico ~ 1 +
+                   num_fem +
+                   (1 | idschool), data=data_proc)
+
+reg_hom_4a <- lmer(f.homosexual ~ 1 +
+                   num_fem +
+                   (1 | idschool), data=data_proc)
+
+```
+
+```{r results='asis'}
+screenreg(list(reg_gen_4a,reg_etn_4a,reg_hom_4a), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Proporción de niñas en el aula")) 
+
+knitreg(list(reg_gen_4a,reg_etn_4a,reg_hom_4a), custom.model.names = c("Igualdad de derechos entre hombres y mujeres", "Igualdad de derechos para todos los grupos étnicos", "Igualdad de derechos para los homosexuales"), custom.coef.names = c("Intercepto", "Proporción de niñas en el aula"))
+```
+
+## Pendientes fijas y aleatorias
+#### Igualdad de derechos entre hombres y mujeres
+```{r}
+reg_gen <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima +
+                  mean_mal_clima +
+                   (1 | idschool), data=data_proc)
+
+# Sexo
+reg_gen_1a <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + sexo | idschool), data=data_proc)
+anova(reg_gen,reg_gen_1a) #sí hay diferencias significativas (aic es menor en el 2do modelo, bic es un poco mayor en el 2do)
+
+# Grupo étnico
+reg_gen_1b <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + etnico | idschool), data=data_proc)
+anova(reg_gen,reg_gen_1b) #no 
+
+# Antecedentes migratorios
+reg_gen_1c <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + migratorio | idschool), data=data_proc)
+anova(reg_gen,reg_gen_1c) #no 
+
+# Conocimiento cívico
+reg_gen_2 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                    mean_mal_clima +
+                   (1 + c_civico | idschool), data=data_proc)
+anova(reg_gen,reg_gen_2) #sí hay diferencias significativas (aic es menor en el 2do modelo, bic es un poco mayor en el 2do)
+
+# Educación de los padres
+reg_gen_3a <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + factor(educ_apod) | idschool), data=data_proc)
+anova(reg_gen,reg_gen_3a) #no
+
+# Estatus ocupacional
+reg_gen_3b <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + ocup_apod | idschool), data=data_proc)
+anova(reg_gen,reg_gen_3b) #no
+
+# Cantidad de libros en el hogar
+reg_gen_3c <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + factor(libros) | idschool), data=data_proc)
+anova(reg_gen,reg_gen_3c) #no
+```
+
+#### Igualdad de derechos para todos los grupos étnicos
+```{r}
+reg_etn <- lmer(f.etnico ~ 1 +
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                  mean_mal_clima +
+                  (1 | idschool), data=data_proc)
+
+
+# Sexo
+reg_etn_1a <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+anova(reg_etn,reg_etn_1a) #sí hay diferencias significativas (aic es menor en el 2do modelo, bic es un poco mayor en el 2do)
+
+# Grupo étnico
+reg_etn_1b <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + etnico | idschool), data=data_proc)
+anova(reg_etn,reg_etn_1b) #no 
+
+# Antecedentes migratorios
+reg_etn_1c <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + migratorio | idschool), data=data_proc)
+anova(reg_etn,reg_etn_1c) #no 
+
+# Conocimiento cívico
+reg_etn_2 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                    mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+anova(reg_etn,reg_etn_2) #sí hay diferencias significativas (aic es menor en el 2do modelo, bic es muy poco mayor en el 2do)
+
+# Educación de los padres
+reg_etn_3a <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + factor(educ_apod) | idschool), data=data_proc)
+anova(reg_etn,reg_etn_3a) #no
+
+# Estatus ocupacional
+reg_etn_3b <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + ocup_apod | idschool), data=data_proc)
+anova(reg_etn,reg_etn_3b) #no
+
+# Cantidad de libros en el hogar
+reg_etn_3c <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + factor(libros) | idschool), data=data_proc)
+anova(reg_etn,reg_etn_3c) #no
+```
+
+#### Igualdad de derechos para los homosexuales
+```{r}
+reg_hom <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                  mean_mal_clima +
+                  (1 | idschool), data=data_proc)
+
+
+# Sexo
+reg_hom_1a <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+anova(reg_hom,reg_hom_1a) #no
+
+# Grupo étnico
+reg_hom_1b <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + etnico | idschool), data=data_proc)
+anova(reg_hom,reg_hom_1b) #no 
+
+# Antecedentes migratorios
+reg_hom_1c <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + migratorio | idschool), data=data_proc)
+anova(reg_hom,reg_hom_1c) #no 
+
+# Conocimiento cívico
+reg_hom_2 <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                    mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+anova(reg_hom,reg_hom_2) #no
+
+# Educación de los padres
+reg_hom_3a <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + factor(educ_apod) | idschool), data=data_proc)
+anova(reg_hom,reg_hom_3a) #no
+
+# Estatus ocupacional
+reg_hom_3b <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima +
+                   (1 + ocup_apod | idschool), data=data_proc)
+anova(reg_hom,reg_hom_3b) #no
+
+# Cantidad de libros en el hogar
+reg_hom_3c <- lmer(f.homosexual ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + factor(libros) | idschool), data=data_proc)
+anova(reg_hom,reg_hom_3c) #no
+```
+
+### Hipótesis 6.
+*H6: Las características de la escuela (proporción de niñas; apertura a la discusión en el aula) mitigan la influencia de los recursos familiares y actitudes de los apoderados sobre las actitudes de los estudiantes hacia la igualdad de género.*
+
+#### Igualdad de derechos entre hombres y mujeres
+##### Sexo
+```{r}
+reg_gen_i_s1 <- lmer(f.genero ~ 1 + 
+                   sexo*num_fem +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s1) #la interacción no es significativa
+
+reg_gen_i_s2 <- lmer(f.genero ~ 1 + 
+                   sexo*num_etn +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s2) #la interacción no es significativa
+
+reg_gen_i_s3 <- lmer(f.genero ~ 1 + 
+                   sexo*num_mig +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s3) #la interacción no es significativa
+
+reg_gen_i_s4 <- lmer(f.genero ~ 1 + 
+                   sexo*f.ap_discusion +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s4) #la interacción no es significativa
+
+reg_gen_i_s5 <- lmer(f.genero ~ 1 + 
+                   sexo*mean_discusion +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s5) #la interacción no es significativa
+
+reg_gen_i_s6 <- lmer(f.genero ~ 1 + 
+                   sexo*f.buen_clima_prof +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s6) #### la interacción sí es significativa
+
+reg_gen_i_s7 <- lmer(f.genero ~ 1 + 
+                   sexo*mean_bclima_prof +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s7) #### la interacción sí es significativa
+
+reg_gen_i_s8 <- lmer(f.genero ~ 1 + 
+                   sexo*f.buen_clima_est +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s8) #### la interacción sí es significativa
+
+reg_gen_i_s9 <- lmer(f.genero ~ 1 + 
+                   sexo*mean_bclima_est +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s9) #### la interacción sí es significativa
+
+reg_gen_i_s10 <- lmer(f.genero ~ 1 + 
+                   sexo*f.mal_clima +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s10) # la interacción no es significativa
+
+reg_gen_i_s11 <- lmer(f.genero ~ 1 + 
+                   sexo*mean_mal_clima +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s11) # la interacción no es significativa
+```
+###### Buen clima profesor
+```{r}
+reg_gen_i_s6 <- lmer(f.genero ~ 1 + 
+                   as.factor(sexo)*f.buen_clima_prof +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   f.buen_clima_est +
+                   f.mal_clima + 
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_gen_i_s6) #### la interacción sí es significativa
+
+#reg_2a = lmer(tolerancia ~ 1 + c_bclima*S_GENDER + (1 + S_GENDER | idschool), data = data)
+#reg_2b = lmer(tolerancia ~ 1 + c_bclima*nse + (1 + nse | idschool), data = data)
+#reg_2c = lmer(tolerancia ~ 1 + c_bclima*c_civic + (1 + c_civic | idschool), data = data)
+#screenreg(list(reg_2a,reg_2b,reg_2c))
+
+data_proc1=data_proc
+
+data_proc1$f.genero <- as.numeric(data_proc1$f.genero)
+data_proc1$sexo <- as.character(data_proc1$sexo)
+data_proc1$etnico <- as.character(data_proc1$etnico)
+data_proc1$migratorio <- as.character(data_proc1$migratorio)
+data_proc1$c_civico <- as.numeric(data_proc1$c_civico)
+data_proc1$educ_apod <- as.character(data_proc1$educ_apod)
+data_proc1$ocup_apod <- as.numeric(data_proc1$ocup_apod)
+data_proc1$libros <- as.numeric(data_proc1$libros)
+data_proc1$num_fem <- as.numeric(data_proc1$num_fem)
+data_proc1$num_etn <- as.numeric(data_proc1$num_etn)
+data_proc1$num_mig <- as.numeric(data_proc1$num_mig)
+data_proc1$f.ap_discusion <- as.numeric(data_proc1$f.ap_discusion)
+data_proc1$f.buen_clima_est <- as.numeric(data_proc1$f.buen_clima_est)
+data_proc1$f.mal_clima <- as.numeric(data_proc1$f.mal_clima)
+
+reg_gen_i_s6 <- lmer(f.genero ~ 1 + 
+                   sexo*f.buen_clima_prof +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   f.buen_clima_est +
+                   f.mal_clima + 
+                   (1 + sexo | idschool), data=data_proc1)
+screenreg(reg_gen_i_s6) #### la interacción sí es significativa
+
+#reg_gen_i_s6 <- lmer(f.genero1 ~ 1 + 
+ #                  sexo1*f.buen_clima_prof1 +
+  #                 (1 + sexo1 | idschool), data=data_proc)
+
+  int1<- sjPlot::plot_model(reg_gen_i_s6, type=c("int"), pred.type = "fe",mdrt.values="meansd") + ggtitle(" ") + ylab("Igualdad de derechos entre hombres y mujeres") + xlab("Sexo") + scale_color_discrete("Buenas relaciones entre profesores y estudiantes (aula)") + theme(legend.position = "bottom")
+
+
+   sjPlot::plot_model(reg_gen_i_s6, type=c("pred"), pred.type = "fe",mdrt.values="meansd") + ggtitle(" ") + ylab("Igualdad de derechos entre hombres y mujeres") + xlab("Sexo") + scale_color_discrete("Buenas relaciones entre profesores y estudiantes (aula)") + theme(legend.position = "bottom")
+
+  
+  #, labels = c("Niños", "Niñas")
+
+
+ggsave(int1, filename = "../output/int_ig_gen_bclima_prof.png",device = "png",width = 18,height = 12,dpi = "retina",units = "cm")
+```
+
+
+##### Conocimiento cívico
+```{r}
+reg_gen_i_cc1 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*num_fem + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc1) #la interacción no es significativa
+
+reg_gen_i_cc2 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*num_etn + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc2) #la interacción no es significativa
+
+reg_gen_i_cc3 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*num_mig + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc3) #la interacción no es significativa
+
+reg_gen_i_cc4 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.ap_discusion + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc4) #### la interacción sí es significativa
+
+reg_gen_i_cc5 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_discusion + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc5) #### la interacción sí es significativa
+
+reg_gen_i_cc6 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.buen_clima_prof + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc6) #### la interacción sí es significativa
+
+reg_gen_i_cc7 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_bclima_prof + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc7) #### la interacción sí es significativa
+
+reg_gen_i_cc8 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.buen_clima_est + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc8) #### la interacción sí es significativa
+
+reg_gen_i_cc9 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_bclima_est + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc9) #### la interacción sí es significativa
+
+reg_gen_i_cc10 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.mal_clima + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc10) # la interacción no es significativa
+
+reg_gen_i_cc11 <- lmer(f.genero ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_mal_clima + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_gen_i_cc11) # la interacción no es significativa
+```
+
+
+
+#### Igualdad de derechos para todos los grupos étnicos
+##### Sexo
+```{r}
+reg_etn_i_s1 <- lmer(f.etnico ~ 1 + 
+                   sexo*num_fem +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s1) #la interacción no es significativa
+
+reg_etn_i_s2 <- lmer(f.etnico ~ 1 + 
+                   sexo*num_etn +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s2) #la interacción no es significativa
+
+reg_etn_i_s3 <- lmer(f.etnico ~ 1 + 
+                   sexo*num_mig +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s3) #la interacción no es significativa
+
+reg_etn_i_s4 <- lmer(f.etnico ~ 1 + 
+                   sexo*f.ap_discusion +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s4) #la interacción no es significativa
+
+reg_etn_i_s5 <- lmer(f.etnico ~ 1 + 
+                   sexo*mean_discusion +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s5) #la interacción no es significativa
+
+reg_etn_i_s6 <- lmer(f.etnico ~ 1 + 
+                   sexo*f.buen_clima_prof +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s6) #### la interacción sí es significativa
+
+reg_etn_i_s7 <- lmer(f.etnico ~ 1 + 
+                   sexo*mean_bclima_prof +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s7) #### la interacción sí es significativa
+
+reg_etn_i_s8 <- lmer(f.etnico ~ 1 + 
+                   sexo*f.buen_clima_est +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s8) #### la interacción sí es significativa
+
+reg_etn_i_s9 <- lmer(f.etnico ~ 1 + 
+                   sexo*mean_bclima_est +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s9) #### la interacción sí es significativa
+
+reg_etn_i_s10 <- lmer(f.etnico ~ 1 + 
+                   sexo*f.mal_clima +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s10) # la interacción no es significativa
+
+reg_etn_i_s11 <- lmer(f.etnico ~ 1 + 
+                   sexo*mean_mal_clima +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + sexo | idschool), data=data_proc)
+screenreg(reg_etn_i_s11) # la interacción no es significativa
+```
+
+##### Conocimiento cívico
+```{r}
+reg_etn_i_cc1 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*num_fem + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc1) #la interacción no es significativa
+
+reg_etn_i_cc2 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*num_etn + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc2) #la interacción no es significativa
+
+reg_etn_i_cc3 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*num_mig + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc3) #la interacción no es significativa
+
+reg_etn_i_cc4 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.ap_discusion + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc4) #### la interacción sí es significativa
+
+reg_etn_i_cc5 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_discusion + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc5) #### la interacción sí es significativa
+
+reg_etn_i_cc6 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.buen_clima_prof + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc6) #### la interacción sí es significativa
+
+reg_etn_i_cc7 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_bclima_prof + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc7) #### la interacción sí es significativa
+
+reg_etn_i_cc8 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.buen_clima_est + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc8) #### la interacción sí es significativa
+
+reg_etn_i_cc9 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_bclima_est + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc9) #### la interacción sí es significativa
+
+reg_etn_i_cc10 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*f.mal_clima + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc10) # la interacción no es significativa
+
+reg_etn_i_cc11 <- lmer(f.etnico ~ 1 + 
+                   sexo +
+                   etnico + 
+                   migratorio +
+                   c_civico*mean_mal_clima + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                   f.ap_discusion +
+                   mean_discusion +
+                   f.buen_clima_prof +
+                   mean_bclima_prof +
+                   f.buen_clima_est +
+                   mean_bclima_est + 
+                   f.mal_clima + 
+                     mean_mal_clima+
+                   (1 + c_civico | idschool), data=data_proc)
+screenreg(reg_etn_i_cc11) # la interacción no es significativa
+```
+
+
+# Interacciones
+
+## Genero
+
+```{r}
+#install.packages("MuMIn")
+library(MuMIn )
+```
+
+
+### Genero-prof
+
+```{r}
+
+data_proc$sexo = data_proc$sexo %>% as.factor()
+
+sinintgen_nipenali_nul <- lmer(f.genero ~ 1 + (1  | idschool), data=data_proc)
+
+sinintgen_nipenali <- lmer(f.genero ~ 1 + 
+                  sexo +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1  | idschool), data=data_proc)
+
+sinintgen <- lmer(f.genero ~ 1 + 
+                  sexo +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + sexo | idschool), data=data_proc)
+intgen <- lmer(f.genero ~ 1 + 
+                  sexo*f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + sexo | idschool), data=data_proc)
+
+
+# extraer varianza modelo nulo
+varcomp_1=as.data.frame(VarCorr(sinintgen_nipenali_nul))
+tau00_0=varcomp_1[1,4]
+sigma2_0=varcomp_1[2,4]
+
+
+# R2 n1 n2  - Modelo sin pendiente al B&R
+
+
+
+varcomp_2=as.data.frame(VarCorr(sinintgen_nipenali))
+tau00_1=varcomp_2[1,4]
+sigma2_1=varcomp_2[2,4]
+
+R2_1_L1_sinpenal=(sigma2_0-sigma2_1)/sigma2_0
+R2_1_L1_sinpenal
+
+R2_2_L2_sinpenal=(tau00_0-tau00_1)/tau00_0
+R2_2_L2_sinpenal
+
+ 
+# R2 n1 n2  - Modelo con pendiente al
+
+varcomp_3=as.data.frame(VarCorr(sinintgen))
+tau00_2=varcomp_3[1,4]
+sigma2_2=varcomp_3[4,4]
+
+
+R2_1_L1_conpenal=(sigma2_0-sigma2_2)/sigma2_0
+R2_1_L1_conpenal
+
+R2_2_L2_conpenal=(tau00_0-tau00_2)/tau00_0
+R2_2_L2_conpenal
+
+
+
+# R2 n1 n2  - Modelo con pendiente al
+
+
+varcomp_4=as.data.frame(VarCorr(intgen))
+tau00_3=varcomp_4[1,4]
+sigma2_3=varcomp_4[4,4]
+
+
+R2_1_L1_int=(sigma2_0-sigma2_3)/sigma2_0
+R2_1_L1_int
+
+R2_2_L2_int=(tau00_0-tau00_3)/tau00_0
+R2_2_L2_int
+
+
+
+
+# R2 devianse, con y sin ef aleatorios ( Barton 2020 ) 
+
+
+obj_r2glmn_sinintgen_nipenali = MuMIn::r.squaredGLMM(sinintgen_nipenali)
+
+obj_r2glmn_fijos_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,2]  %>% as.numeric()
+
+
+obj_r2glmn_sinintgen = MuMIn::r.squaredGLMM(sinintgen)
+
+obj_r2glmn_fijos_sinintgen=obj_r2glmn_sinintgen[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen=obj_r2glmn_sinintgen[,2]  %>% as.numeric()
+
+
+obj_r2glmn_intgen = MuMIn::r.squaredGLMM(intgen)
+
+obj_r2glmn_fijos_intgen=obj_r2glmn_intgen[,1] %>% as.numeric()
+obj_r2glmn_alea_intgen=obj_r2glmn_intgen[,2] %>% as.numeric()
+
+
+
+## Diferencias entre modelos
+
+obj_anov_cm12=anova(sinintgen_nipenali,sinintgen) 
+obj_anov_cm23=anova(sinintgen,intgen) 
+
+obj_anov_cm12_sig=obj_anov_cm12$`Pr(>Chisq)`[2] %>% round(4)
+obj_anov_cm23_sig=obj_anov_cm23$`Pr(>Chisq)`[2] %>% round(4)
+```
+
+
+```{r, results='asis'}
+options(scipen=999) # Desactiva la notación científica
+texreg::knitreg(list(sinintgen_nipenali,sinintgen,intgen), 
+                custom.header = list("Actitudes Igualdad de Genero"=1:3),
+                custom.model.names = c("Multinivel","Pendiente aleatoria", "Interaccion N2-N1"),
+                
+                omit.coef=c("etnico|migratorio|c_civico|educ_apod|libros|ocup_apod|num_fem|num_etn|num_mig|f.ap_discusion_aula|f.buen_clima_est_aula|f.mal_clima_aula"),
+                custom.coef.names=c("Intercepto","Sexo","Buen trato prof.","Interaccion (Sexo*Buen trato prof.)"),
+                
+                custom.note = "$***p <$ 0.001, $**p <$ 0.01, $*p <$ 0.05",digits=4 ,
+                custom.gof.rows= list("R2 N1 (B&R)"=c(R2_1_L1_sinpenal,R2_1_L1_conpenal,R2_1_L1_int),
+                                       "R2 N2 (B&R)"=c(R2_2_L2_sinpenal,R2_2_L2_conpenal,R2_2_L2_int),                                       "R2 N1N2 ef. fijos (Barton)"=c(obj_r2glmn_fijos_sinintgen_nipenali,obj_r2glmn_fijos_sinintgen,obj_r2glmn_fijos_intgen),
+           "R2 N1N2 ef. fijos y aleatorios (Barton)"=c(obj_r2glmn_alea_sinintgen_nipenali,obj_r2glmn_alea_sinintgen,obj_r2glmn_alea_intgen),
+                  "Anova (P)"=c("-",obj_anov_cm12_sig,obj_anov_cm23_sig)                                    
+                                       )
+                 )
+
+
+
+```
+
+
+
+
+```{r}
+
+sjPlot::plot_model(intgen,type="int",mdrt.values="minmax") + ylab("IDM")  + labs(color='Relaciones prof.') + ggtitle("IDM: Interacción Sexo*Relaciones-prof.")
+
+```
+
+
+### civic-prof
+
+
+```{r}
+
+data_proc$sexo = data_proc$sexo %>% as.factor()
+
+sinintgen_nipenali_nul <- lmer(f.genero ~ 1 + (1  | idschool), data=data_proc)
+
+sinintgen_nipenali <- lmer(f.genero ~ 1 + 
+                  c_civico +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   sexo + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1  | idschool), data=data_proc)
+
+sinintgen <- lmer(f.genero ~ 1 + 
+                  c_civico +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   sexo + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + c_civico | idschool), data=data_proc)
+intgen <- lmer(f.genero ~ 1 + 
+                  c_civico*f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   sexo + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + c_civico | idschool), data=data_proc)
+
+
+# extraer varianza modelo nulo
+varcomp_1=as.data.frame(VarCorr(sinintgen_nipenali_nul))
+tau00_0=varcomp_1[1,4]
+sigma2_0=varcomp_1[2,4]
+
+
+# R2 n1 n2  - Modelo sin pendiente al B&R
+
+
+
+varcomp_2=as.data.frame(VarCorr(sinintgen_nipenali))
+tau00_1=varcomp_2[1,4]
+sigma2_1=varcomp_2[2,4]
+
+R2_1_L1_sinpenal=(sigma2_0-sigma2_1)/sigma2_0
+R2_1_L1_sinpenal
+
+R2_2_L2_sinpenal=(tau00_0-tau00_1)/tau00_0
+R2_2_L2_sinpenal
+
+ 
+# R2 n1 n2  - Modelo con pendiente al
+
+varcomp_3=as.data.frame(VarCorr(sinintgen))
+tau00_2=varcomp_3[1,4]
+sigma2_2=varcomp_3[4,4]
+
+
+R2_1_L1_conpenal=(sigma2_0-sigma2_2)/sigma2_0
+R2_1_L1_conpenal
+
+R2_2_L2_conpenal=(tau00_0-tau00_2)/tau00_0
+R2_2_L2_conpenal
+
+
+
+# R2 n1 n2  - Modelo con pendiente al
+
+
+varcomp_4=as.data.frame(VarCorr(intgen))
+tau00_3=varcomp_4[1,4]
+sigma2_3=varcomp_4[4,4]
+
+
+R2_1_L1_int=(sigma2_0-sigma2_3)/sigma2_0
+R2_1_L1_int
+
+R2_2_L2_int=(tau00_0-tau00_3)/tau00_0
+R2_2_L2_int
+
+
+
+
+# R2 devianse, con y sin ef aleatorios ( Barton 2020 ) 
+
+
+obj_r2glmn_sinintgen_nipenali = MuMIn::r.squaredGLMM(sinintgen_nipenali)
+
+obj_r2glmn_fijos_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,2]  %>% as.numeric()
+
+
+obj_r2glmn_sinintgen = MuMIn::r.squaredGLMM(sinintgen)
+
+obj_r2glmn_fijos_sinintgen=obj_r2glmn_sinintgen[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen=obj_r2glmn_sinintgen[,2]  %>% as.numeric()
+
+
+obj_r2glmn_intgen = MuMIn::r.squaredGLMM(intgen)
+
+obj_r2glmn_fijos_intgen=obj_r2glmn_intgen[,1] %>% as.numeric()
+obj_r2glmn_alea_intgen=obj_r2glmn_intgen[,2] %>% as.numeric()
+
+
+
+## Diferencias entre modelos
+
+obj_anov_cm12=anova(sinintgen_nipenali,sinintgen) 
+obj_anov_cm23=anova(sinintgen,intgen) 
+
+obj_anov_cm12_sig=obj_anov_cm12$`Pr(>Chisq)`[2] %>% round(4)
+obj_anov_cm23_sig=obj_anov_cm23$`Pr(>Chisq)`[2] %>% round(4)
+```
+
+
+```{r, results='asis'}
+options(scipen=999) # Desactiva la notación científica
+texreg::knitreg(list(sinintgen_nipenali,sinintgen,intgen), 
+                custom.header = list("Actitudes Igualdad de Genero"=1:3),
+                custom.model.names = c("Multinivel","Pendiente aleatoria", "Interaccion N2-N1"),
+                
+                omit.coef=c("etnico|migratorio|sexo|educ_apod|libros|ocup_apod|num_fem|num_etn|num_mig|f.ap_discusion_aula|f.buen_clima_est_aula|f.mal_clima_aula"),
+                custom.coef.names=c("Intercepto","Conocimiento Civico","Buen trato prof.","Interaccion (Conocimiento Civico*Buen trato prof.)"),
+                
+                custom.note = "$***p <$ 0.001, $**p <$ 0.01, $*p <$ 0.05",digits=4 ,
+                custom.gof.rows= list("R2 N1 (B&R)"=c(R2_1_L1_sinpenal,R2_1_L1_conpenal,R2_1_L1_int),
+                                       "R2 N2 (B&R)"=c(R2_2_L2_sinpenal,R2_2_L2_conpenal,R2_2_L2_int),                                       "R2 N1N2 ef. fijos (Barton)"=c(obj_r2glmn_fijos_sinintgen_nipenali,obj_r2glmn_fijos_sinintgen,obj_r2glmn_fijos_intgen),
+           "R2 N1N2 ef. fijos y aleatorios (Barton)"=c(obj_r2glmn_alea_sinintgen_nipenali,obj_r2glmn_alea_sinintgen,obj_r2glmn_alea_intgen),
+                  "Anova (P)"=c("-",obj_anov_cm12_sig,obj_anov_cm23_sig)                                    
+                                       )
+                 )
+
+
+
+```
+
+
+
+
+```{r}
+
+
+sjPlot::plot_model(intgen,type="int",mdrt.values="minmax") + ylab("IDM")  + labs(color='Relaciones prof.') + xlab("Conocimiento Cívico") + ggtitle("IDM: Interacción C.Civico*Relaciones-prof.")
+
+```
+
+
+
+
+## int ent
+
+
+```{r}
+
+data_proc$sexo = data_proc$sexo %>% as.factor()
+
+
+sinintgen_nipenali_nul <- lmer(f.genero ~ 1 + (1  | idschool), data=data_proc)
+
+sinintgen_nipenali <- lmer(f.etnico ~ 1 + 
+                  sexo +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1  | idschool), data=data_proc)
+
+sinintgen <- lmer(f.etnico ~ 1 + 
+                  sexo +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + sexo | idschool), data=data_proc)
+intgen <- lmer(f.etnico ~ 1 + 
+                  sexo*f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   c_civico + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + sexo | idschool), data=data_proc)
+
+
+# extraer varianza modelo nulo
+varcomp_1=as.data.frame(VarCorr(sinintgen_nipenali_nul))
+tau00_0=varcomp_1[1,4]
+sigma2_0=varcomp_1[2,4]
+
+
+# R2 n1 n2  - Modelo sin pendiente al B&R
+
+
+
+varcomp_2=as.data.frame(VarCorr(sinintgen_nipenali))
+tau00_1=varcomp_2[1,4]
+sigma2_1=varcomp_2[2,4]
+
+R2_1_L1_sinpenal=(sigma2_0-sigma2_1)/sigma2_0
+R2_1_L1_sinpenal
+
+R2_2_L2_sinpenal=(tau00_0-tau00_1)/tau00_0
+R2_2_L2_sinpenal
+
+ 
+# R2 n1 n2  - Modelo con pendiente al
+
+varcomp_3=as.data.frame(VarCorr(sinintgen))
+tau00_2=varcomp_3[1,4]
+sigma2_2=varcomp_3[4,4]
+
+
+R2_1_L1_conpenal=(sigma2_0-sigma2_2)/sigma2_0
+R2_1_L1_conpenal
+
+R2_2_L2_conpenal=(tau00_0-tau00_2)/tau00_0
+R2_2_L2_conpenal
+
+
+
+# R2 n1 n2  - Modelo con pendiente al
+
+
+varcomp_4=as.data.frame(VarCorr(intgen))
+tau00_3=varcomp_4[1,4]
+sigma2_3=varcomp_4[4,4]
+
+
+R2_1_L1_int=(sigma2_0-sigma2_3)/sigma2_0
+R2_1_L1_int
+
+R2_2_L2_int=(tau00_0-tau00_3)/tau00_0
+R2_2_L2_int
+
+
+
+
+# R2 devianse, con y sin ef aleatorios ( Barton 2020 ) 
+
+
+obj_r2glmn_sinintgen_nipenali = MuMIn::r.squaredGLMM(sinintgen_nipenali)
+
+obj_r2glmn_fijos_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,2]  %>% as.numeric()
+
+
+obj_r2glmn_sinintgen = MuMIn::r.squaredGLMM(sinintgen)
+
+obj_r2glmn_fijos_sinintgen=obj_r2glmn_sinintgen[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen=obj_r2glmn_sinintgen[,2]  %>% as.numeric()
+
+
+obj_r2glmn_intgen = MuMIn::r.squaredGLMM(intgen)
+
+obj_r2glmn_fijos_intgen=obj_r2glmn_intgen[,1] %>% as.numeric()
+obj_r2glmn_alea_intgen=obj_r2glmn_intgen[,2] %>% as.numeric()
+
+
+
+## Diferencias entre modelos
+
+obj_anov_cm12=anova(sinintgen_nipenali,sinintgen) 
+obj_anov_cm23=anova(sinintgen,intgen) 
+
+obj_anov_cm12_sig=obj_anov_cm12$`Pr(>Chisq)`[2] %>% round(4)
+obj_anov_cm23_sig=obj_anov_cm23$`Pr(>Chisq)`[2] %>% round(4)
+```
+
+
+```{r, results='asis'}
+options(scipen=999) # Desactiva la notación científica
+texreg::knitreg(list(sinintgen_nipenali,sinintgen,intgen), 
+                custom.header = list("Actitudes Igualdad entre etnias"=1:3),
+                custom.model.names = c("Multinivel","Pendiente aleatoria", "Interaccion N2-N1"),
+                
+                omit.coef=c("etnico|migratorio|c_civico|educ_apod|libros|ocup_apod|num_fem|num_etn|num_mig|f.ap_discusion_aula|f.buen_clima_est_aula|f.mal_clima_aula"),
+                custom.coef.names=c("Intercepto","Sexo","Buen trato prof.","Interaccion (Sexo*Buen trato prof.)"),
+                
+                custom.note = "$***p <$ 0.001, $**p <$ 0.01, $*p <$ 0.05",digits=4 ,
+                custom.gof.rows= list("R2 N1 (B&R)"=c(R2_1_L1_sinpenal,R2_1_L1_conpenal,R2_1_L1_int),
+                                       "R2 N2 (B&R)"=c(R2_2_L2_sinpenal,R2_2_L2_conpenal,R2_2_L2_int),                                       "R2 N1N2 ef. fijos (Barton)"=c(obj_r2glmn_fijos_sinintgen_nipenali,obj_r2glmn_fijos_sinintgen,obj_r2glmn_fijos_intgen),
+           "R2 N1N2 ef. fijos y aleatorios (Barton)"=c(obj_r2glmn_alea_sinintgen_nipenali,obj_r2glmn_alea_sinintgen,obj_r2glmn_alea_intgen),
+                  "Anova (P)"=c("-",obj_anov_cm12_sig,obj_anov_cm23_sig)                                    
+                                       )
+                 )
+
+
+
+```
+
+
+
+
+```{r}
+
+sjPlot::plot_model(intgen,type="int",mdrt.values="minmax")
+
+
+
+```
+
+
+### civic-prof
+
+
+```{r}
+
+data_proc$sexo = data_proc$sexo %>% as.factor()
+
+sinintgen_nipenali_nul <- lmer(f.genero ~ 1 + (1  | idschool), data=data_proc)
+
+sinintgen_nipenali <- lmer(f.etnico ~ 1 + 
+                  c_civico +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   sexo + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1  | idschool), data=data_proc)
+
+sinintgen <- lmer(f.etnico ~ 1 + 
+                  c_civico +f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   sexo + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + c_civico | idschool), data=data_proc)
+intgen <- lmer(f.etnico ~ 1 + 
+                  c_civico*f.buen_clima_prof_aula +
+                   etnico + 
+                   migratorio +
+                   sexo + 
+                   factor(educ_apod) +
+                   ocup_apod +
+                   factor(libros) +
+                   num_fem +
+                   num_etn +
+                   num_mig +
+                #  f.ap_discusion +
+                  f.ap_discusion_aula + 
+                 #  f.buen_clima_prof +
+                  # f.buen_clima_est +
+                  f.buen_clima_est_aula +
+                 # f.mal_clima + 
+                  f.mal_clima_aula +
+                   (1 + c_civico | idschool), data=data_proc)
+
+
+# extraer varianza modelo nulo
+varcomp_1=as.data.frame(VarCorr(sinintgen_nipenali_nul))
+tau00_0=varcomp_1[1,4]
+sigma2_0=varcomp_1[2,4]
+
+
+# R2 n1 n2  - Modelo sin pendiente al B&R
+
+
+
+varcomp_2=as.data.frame(VarCorr(sinintgen_nipenali))
+tau00_1=varcomp_2[1,4]
+sigma2_1=varcomp_2[2,4]
+
+R2_1_L1_sinpenal=(sigma2_0-sigma2_1)/sigma2_0
+R2_1_L1_sinpenal
+
+R2_2_L2_sinpenal=(tau00_0-tau00_1)/tau00_0
+R2_2_L2_sinpenal
+
+ 
+# R2 n1 n2  - Modelo con pendiente al
+
+varcomp_3=as.data.frame(VarCorr(sinintgen))
+tau00_2=varcomp_3[1,4]
+sigma2_2=varcomp_3[4,4]
+
+
+R2_1_L1_conpenal=(sigma2_0-sigma2_2)/sigma2_0
+R2_1_L1_conpenal
+
+R2_2_L2_conpenal=(tau00_0-tau00_2)/tau00_0
+R2_2_L2_conpenal
+
+
+
+# R2 n1 n2  - Modelo con pendiente al
+
+
+varcomp_4=as.data.frame(VarCorr(intgen))
+tau00_3=varcomp_4[1,4]
+sigma2_3=varcomp_4[4,4]
+
+
+R2_1_L1_int=(sigma2_0-sigma2_3)/sigma2_0
+R2_1_L1_int
+
+R2_2_L2_int=(tau00_0-tau00_3)/tau00_0
+R2_2_L2_int
+
+
+
+
+# R2 devianse, con y sin ef aleatorios ( Barton 2020 ) 
+
+
+obj_r2glmn_sinintgen_nipenali = MuMIn::r.squaredGLMM(sinintgen_nipenali)
+
+obj_r2glmn_fijos_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen_nipenali=obj_r2glmn_sinintgen_nipenali[,2]  %>% as.numeric()
+
+
+obj_r2glmn_sinintgen = MuMIn::r.squaredGLMM(sinintgen)
+
+obj_r2glmn_fijos_sinintgen=obj_r2glmn_sinintgen[,1]  %>% as.numeric()
+obj_r2glmn_alea_sinintgen=obj_r2glmn_sinintgen[,2]  %>% as.numeric()
+
+
+obj_r2glmn_intgen = MuMIn::r.squaredGLMM(intgen)
+
+obj_r2glmn_fijos_intgen=obj_r2glmn_intgen[,1] %>% as.numeric()
+obj_r2glmn_alea_intgen=obj_r2glmn_intgen[,2] %>% as.numeric()
+
+
+
+## Diferencias entre modelos
+
+obj_anov_cm12=anova(sinintgen_nipenali,sinintgen) 
+obj_anov_cm23=anova(sinintgen,intgen) 
+
+obj_anov_cm12_sig=obj_anov_cm12$`Pr(>Chisq)`[2] %>% round(4)
+obj_anov_cm23_sig=obj_anov_cm23$`Pr(>Chisq)`[2] %>% round(4)
+```
+
+
+
+```{r, results='asis'}
+options(scipen=999) # Desactiva la notación científica
+texreg::knitreg(list(sinintgen_nipenali,sinintgen,intgen), 
+                custom.header = list("Actitudes Igualdad entre etnias"=1:3),
+                custom.model.names = c("Multinivel","Pendiente aleatoria", "Interaccion N2-N1"),
+                
+                omit.coef=c("etnico|migratorio|sexo|educ_apod|libros|ocup_apod|num_fem|num_etn|num_mig|f.ap_discusion_aula|f.buen_clima_est_aula|f.mal_clima_aula"),
+                custom.coef.names=c("Intercepto","Conocimiento Civico","Buen trato prof.","Interaccion (Conocimiento Civico*Buen trato prof.)"),
+                
+                custom.note = "$***p <$ 0.001, $**p <$ 0.01, $*p <$ 0.05",digits=4 ,
+                custom.gof.rows= list("R2 N1 (B&R)"=c(R2_1_L1_sinpenal,R2_1_L1_conpenal,R2_1_L1_int),
+                                       "R2 N2 (B&R)"=c(R2_2_L2_sinpenal,R2_2_L2_conpenal,R2_2_L2_int),                                       "R2 N1N2 ef. fijos (Barton)"=c(obj_r2glmn_fijos_sinintgen_nipenali,obj_r2glmn_fijos_sinintgen,obj_r2glmn_fijos_intgen),
+           "R2 N1N2 ef. fijos y aleatorios (Barton)"=c(obj_r2glmn_alea_sinintgen_nipenali,obj_r2glmn_alea_sinintgen,obj_r2glmn_alea_intgen),
+                  "Anova (P)"=c("-",obj_anov_cm12_sig,obj_anov_cm23_sig)                                    
+                                       )
+                 )
+
+
+
+```
+
+
+
+
+```{r}
+
+sjPlot::plot_model(intgen,type="int",mdrt.values="minmax")
+
+
+sjPlot::plot_model(intgen,type="int",mdrt.values="minmax") + ylab("IDGE")  + labs(color='Relaciones prof.') + xlab("Conocimiento Civico")+ ggtitle("IDGE: Interacción C.Civico*Relaciones-prof.")
+
+```
+
+

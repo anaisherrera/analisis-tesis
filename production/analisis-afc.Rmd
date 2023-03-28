@@ -1,0 +1,225 @@
+---
+title: "Análisis factorial confirmatorio"
+subtitle: "Análisis de la validez de los modelos de medida de las variables latentes"
+author: "Anais Herrera Leighton"
+output: 
+  html_document:
+    toc: yes
+    code_folding: hide
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(warning = FALSE, 
+                      message = FALSE,
+                      error = TRUE)
+```
+
+# Librerías
+```{r}
+pacman::p_load(lavaan, dplyr)
+```
+
+# Estimación AFC multinivel variables dependientes
+
+```{r}
+load(file= "../input/data/proc/data.Rdata")
+data1=data %>% select(starts_with("i_"),idstud) %>% as.data.frame()
+data1=na.omit(data1)
+```
+
+```{r}
+load(file= "../input/data/proc/data_afc_dep.Rdata")
+```
+
+```{r}
+model <- '
+f.genero =~ i_gen1 + i_gen2 + i_gen3
+f.etnico =~ i_etn1 + i_etn2 + i_etn3 + i_etn4
+f.homosexual =~ i_hom1 + i_hom2 + i_hom3 + i_hom4 + i_hom5
+f.genero ~~ f.etnico
+f.genero ~~ f.homosexual
+f.etnico ~~ f.homosexual'
+
+fit1<- cfa(model, data=data_afc_dep, ordered=TRUE)
+summary(fit1, fit.measures=T, standardized=T)
+```
+
+## Estimación puntuaciones factoriales
+```{r}
+p1a <- predict(fit1)
+scores_ig_der = as.data.frame(p1a)
+
+# Merge with factor scores
+data_cfa_sco = cbind(data1, scores_ig_der)
+
+# Check
+stargazer::stargazer(data_cfa_sco[, 14:16], type = "text")
+
+# Etiquetado
+data_cfa_sco$f.genero <- sjlabelled::set_label(x = data_cfa_sco$f.genero,label = "Actitudes hacia la igualdad de derechos entre hombres y mujeres")
+data_cfa_sco$f.etnico <- sjlabelled::set_label(x = data_cfa_sco$f.etnico,label = "Actitudes hacia la igualdad de derechos para todos los grupos racializados y/o étnicos")
+data_cfa_sco$f.homosexual <- sjlabelled::set_label(x = data_cfa_sco$f.homosexual,label = "Actitudes hacia la igualdad de derechos para inmigrantes")
+
+# Save  factor scores
+cfa_sco1 = data_cfa_sco %>% dplyr::select(f.genero, f.etnico, f.homosexual, idstud) %>% as.data.frame()
+```
+
+# Estimación AFC multinivel variables independientes
+## Clima escolar
+
+```{r}
+load(file= "../input/data/proc/data.Rdata")
+data2=data %>% select("b_clima1"=IS3G19A,"b_clima2"=IS3G19B,"b_clima3"=IS3G19C,"b_clima4"=IS3G19D,"b_clima5"=IS3G19E,"b_clima6"=IS3G19F,"b_clima7"=IS3G19G,"b_clima8"=IS3G19H,"b_clima9"=IS3G19I,"m_clima1"=IC3G06A,"m_clima2"=IC3G06B,"m_clima3"=IC3G06C,"m_clima4"=IC3G06D,"m_clima5"=IC3G06E,"m_clima6"=IC3G06F,idstud) %>% as.data.frame()
+data2=na.omit(data2)
+```
+
+```{r}
+load(file= "../input/data/proc/data_afc_clima.Rdata")
+```
+
+```{r}
+model2 <- '
+f.buen_clima_prof =~ b_clima1 + b_clima2 + b_clima3 + b_clima4 + b_clima5 + b_clima6 
+
+f.buen_clima_est =~ b_clima7 + b_clima8 + b_clima9
+
+f.mal_clima =~ m_clima1 + m_clima2 + m_clima3 + m_clima4 + m_clima5 + m_clima6
+
+f.buen_clima_prof ~~ f.buen_clima_est 
+f.buen_clima_prof ~~ f.mal_clima  
+f.buen_clima_est ~~ f.mal_clima '
+
+fit2<- cfa(model2, data=data_afc_clima, ordered=TRUE)
+summary(fit2, fit.measures=T, standardized=T)
+```
+### Estimación puntuaciones factoriales
+```{r}
+p2a <- predict(fit2)
+scores_clima = as.data.frame(p2a)
+
+# Merge with factor scores
+data_cfa_sco2 = cbind(data2, scores_clima)
+
+# Check
+stargazer::stargazer(data_cfa_sco2[, 17:19], type = "text")
+
+# Etiquetado
+data_cfa_sco2$f.buen_clima_prof <- sjlabelled::set_label(x = data_cfa_sco2$f.buen_clima_prof,label = "Relaciones interpersonales entre profesores y estudiantes")
+data_cfa_sco2$f.buen_clima_est <- sjlabelled::set_label(x = data_cfa_sco2$f.buen_clima_est,label = "Relaciones interpersonales entre estudiantes")
+data_cfa_sco2$f.mal_clima <- sjlabelled::set_label(x = data_cfa_sco2$f.mal_clima,label = "Situaciones de violencia física, emocional o verbal")
+
+# Save  factor scores
+cfa_sco2 = data_cfa_sco2 %>% dplyr::select(f.buen_clima_prof, f.buen_clima_est, f.mal_clima, idstud) %>% as.data.frame()
+```
+
+## Apertura a la discusión en el aula
+
+```{r}
+load(file= "../input/data/proc/data.Rdata")
+data3=data %>% select("ap_disc1"=IS3G17A,"ap_disc2"=IS3G17B,"ap_disc3"=IS3G17C,"ap_disc4"=IS3G17D,"ap_disc5"=IS3G17E,"ap_disc6"=IS3G17F,idstud) %>% as.data.frame()
+data3=na.omit(data3)
+```
+
+```{r}
+load(file= "../input/data/proc/data_afc_ap_disc.Rdata")
+```
+
+```{r}
+model3 <- '
+f.ap_discusion =~ ap_disc1 + ap_disc2 + ap_disc3 + ap_disc4 + ap_disc5 + ap_disc6'
+
+fit3<- cfa(model3, data=data_afc_ap_disc, ordered=T)
+summary(fit3, fit.measures=T, standardized=T)
+```
+
+### Estimación puntuaciones factoriales
+```{r}
+p3a <- predict(fit3)
+scores_ap_disc = as.data.frame(p3a)
+
+# Merge with factor scores
+data_cfa_sco3 = cbind(data3, scores_ap_disc)
+
+# Check
+#stargazer::stargazer(data_cfa_sco3[,8], type = "text")
+
+# Etiquetado
+data_cfa_sco3$f.ap_discusion <- sjlabelled::set_label(x = data_cfa_sco3$f.ap_discusion,label = "Percepción individual de la apertura a la discusión en el aula")
+
+# Save  factor scores
+cfa_sco3 = data_cfa_sco3 %>% dplyr::select(f.ap_discusion, idstud) %>% as.data.frame()
+```
+
+# Base de datos
+
+
+```{r}
+# Pegado bases de datos
+data_proc1 <- full_join(x = data,y = cfa_sco1,by ="idstud")
+data_proc1 = data_proc1 %>% filter(!duplicated(idstud))
+data_proc2 <- full_join(x = data_proc1,y = cfa_sco2,by ="idstud")
+data_proc2 = data_proc2 %>% filter(!duplicated(idstud))
+data_proc0 <- full_join(x = data_proc2,y = cfa_sco3,by ="idstud")
+data_proc0 = data_proc0 %>% filter(!duplicated(idstud))
+
+```
+
+
+```{r}
+data_proc0=data_proc0 %>% group_by(idschool) %>% mutate(f.mal_clima_aula = mean(f.mal_clima,na.rm=T),f.buen_clima_est_aula = mean(f.buen_clima_est,na.rm=T),f.buen_clima_prof_aula = mean(f.buen_clima_prof,na.rm=T), f.ap_discusion_aula=mean(f.ap_discusion,na.rm=T) )
+
+
+data_proc0 %>% select(contains("clima")) %>% select(-contains("b_")) %>% na.omit() %>% cor() %>% corPlot()
+
+```
+
+
+
+```{r}
+
+# Edición características de la escuela y creación de variables agrupadas
+
+## Apertura a la discusión
+
+### Centrado
+#### Nivel 1: al promedio del grupo
+#data_proc0$f.ap_discusion = misty::center(data_proc0$f.ap_discusion, type = "CWC", cluster = data_proc0$idstud) # al correr esta línea me apareció el siguiente mensaje Error: Vector in 'x' specified as level-1 predictor does not have any within-cluster variance.
+#data_proc0$f.ap_discusion %>% table()
+
+#### Nivel 2: al gran promedio
+data_proc0$mean_discusion = misty::center(data_proc0$f.ap_discusion, type = c("CGM"))
+
+## Buenas relaciones interpersonales entre estudiantes
+
+### Centrado
+#### Nivel 1: al promedio del grupo
+#data_proc0$f.buen_clima_est = misty::center(data_proc0$f.buen_clima_est, type = "CWC", cluster = data_proc0$idstud) # al correr esta línea me apareció el siguiente mensaje Error: Vector in 'x' specified as level-1 predictor does not have any within-cluster variance.
+#data_proc0$f.buen_clima_est %>% table()
+
+#### Nivel 2: al gran promedio
+data_proc0$mean_bclima_est = misty::center(data_proc0$f.buen_clima_est, type = c("CGM"))
+
+## Buenas relaciones interpersonales entre estudiantes y profesores
+
+### Centrado
+#### Nivel 1: al promedio del grupo
+#data_proc0$f.buen_clima_prof = misty::center(data_proc0$f.buen_clima_prof, type = "CWC", cluster = data_proc0$idstud) # al correr esta línea me apareció el siguiente mensaje Error: Vector in 'x' specified as level-1 predictor does not have any within-cluster variance.
+#data_proc0$f.buen_clima_prof %>% table()
+
+#### Nivel 2: al gran promedio
+data_proc0$mean_bclima_prof = misty::center(data_proc0$f.buen_clima_prof, type = c("CGM"))
+
+
+## Situaciones de violencia física, emocional y/o verbal en la escuela
+
+### Centrado
+#### Nivel 1: al promedio del grupo
+#data_proc0$f.mal_clima = misty::center(data_proc0$f.mal_clima, type = "CWC", cluster = data_proc0$idstud) # al correr esta línea me apareció el siguiente mensaje Error: Vector in 'x' specified as level-1 predictor does not have any within-cluster variance.
+#data_proc0$f.mal_clima %>% table()
+
+#### Nivel 2: al gran promedio
+data_proc0$mean_mal_clima = misty::center(data_proc0$f.mal_clima, type = c("CGM"))
+
+save(data_proc0, file = "../input/data/proc/data_proc.Rdata")
+```
+

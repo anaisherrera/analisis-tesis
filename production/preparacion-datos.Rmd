@@ -1,0 +1,69 @@
+---
+title: "Preparación de datos"
+author: "Anais Herrera Leighton"
+output: html_document
+---
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(warning = FALSE, 
+                      message = FALSE,
+                      error = TRUE)
+```
+
+# Librerías
+```{r}
+library("haven")
+library("dplyr")
+```
+
+# Preparación de la base de datos para AFC variables dependientes
+```{r}
+data <- read_dta("../input/data/original/iccs_simce.dta")
+data$i_gen1 <-sjmisc::rec(data$IS3G24A,rec="rev")
+data$i_gen2 <-sjmisc::rec(data$IS3G24B,rec="rev")
+data$i_gen3 <-sjmisc::rec(data$IS3G24E,rec="rev")
+data$i_etn1 <-sjmisc::rec(data$IS3G25A,rec="rev")
+data$i_etn2 <-sjmisc::rec(data$IS3G25B,rec="rev")
+data$i_etn3 <-sjmisc::rec(data$IS3G25C,rec="rev")
+data$i_etn4 <-sjmisc::rec(data$IS3G25E,rec="rev")
+data$i_hom1 <-sjmisc::rec(data$LS3G08A,rec="rev")
+data$i_hom2 <-sjmisc::rec(data$LS3G08B,rec="rev")
+data$i_hom3 <-sjmisc::rec(data$LS3G08C,rec="rev")
+data$i_hom4 <-sjmisc::rec(data$LS3G08D,rec="rev")
+data$i_hom5 <-sjmisc::rec(data$LS3G08E,rec="rev")
+save(data, file= "../input/data/original/data.Rdata")
+load(file= "../input/data/original/data.Rdata")
+
+data_afc_dep = data %>% dplyr::select(starts_with("i_"),) %>% as.data.frame()
+summary(data_afc_dep)
+save(data_afc_dep, file= "../input/data/proc/data_afc_dep.Rdata")
+```
+
+# Preparación de la base de datos para AFC variables independientes
+```{r}
+data$b_clima1 <-sjmisc::rec(data$IS3G19A,rec="rev")
+data$b_clima2 <-sjmisc::rec(data$IS3G19B,rec="rev")
+data$b_clima3 <-sjmisc::rec(data$IS3G19C,rec="rev")
+data$b_clima4 <-sjmisc::rec(data$IS3G19D,rec="rev")
+data$b_clima5 <-sjmisc::rec(data$IS3G19E,rec="rev")
+data$b_clima6 <-sjmisc::rec(data$IS3G19F,rec="rev")
+data$b_clima7 <-sjmisc::rec(data$IS3G19G,rec="rev")
+data$b_clima8 <-sjmisc::rec(data$IS3G19H,rec="rev")
+data$b_clima9 <-sjmisc::rec(data$IS3G19I,rec="rev")
+
+data_afc_clima = data %>% dplyr::select(b_clima1,b_clima2,b_clima3,b_clima4,b_clima5,b_clima6,b_clima7,b_clima8,b_clima9,"m_clima1"=IC3G06A,"m_clima2"=IC3G06B,"m_clima3"=IC3G06C,"m_clima4"=IC3G06D,"m_clima5"=IC3G06E,"m_clima6"=IC3G06F,idstud) %>% as.data.frame()
+save(data_afc_clima, file= "../input/data/proc/data_afc_clima.Rdata")
+
+data_afc_ap_disc = data %>% dplyr::select("ap_disc1"=IS3G17A,"ap_disc2"=IS3G17B,"ap_disc3"=IS3G17C,"ap_disc4"=IS3G17D,"ap_disc5"=IS3G17E,"ap_disc6"=IS3G17F,idstud) %>% as.data.frame()
+save(data_afc_ap_disc, file= "../input/data/proc/data_afc_ap_disc.Rdata")
+```
+
+# Preparación de la base de datos para análisis multinivel
+```{r}
+data = data %>% group_by(idschool) %>% mutate(num_fem=mean(S_GENDER==1, na.rm = T))
+data = data %>% group_by(idschool) %>% mutate(num_mig=mean(IS3G04A==0, na.rm = T))
+data$etnico <- ifelse(data$IS3G02BN==15202, 1, 0)
+data = data %>% group_by(idschool) %>% mutate(num_etn=mean(etnico==1, na.rm = T))
+
+save(data, file= "../input/data/proc/data.Rdata")
+```
+
